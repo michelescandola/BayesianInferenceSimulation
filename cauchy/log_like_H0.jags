@@ -1,0 +1,14 @@
+model {
+  #likelihood
+  for (i in 1:N) {  
+    mu[i]  <- alpha
+    y[i]   ~ dnorm(mu[i],1/sigma)
+
+    log_like[i] <- logdensity.norm(y[i], mu[i], 1/sigma)
+  }
+  
+  sigma ~ dgamma(1,0.1)
+
+  # population parameters (fixed parameters)
+  alpha~ dt(0.0,0.707,1)
+}

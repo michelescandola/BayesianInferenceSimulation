@@ -1,0 +1,105 @@
+---
+title: "Indicator Variable Selection vs. Bayes Factors"
+author: "Michele Scandola"
+date: "27 dicembre 2019"
+output: 
+  html_document: 
+    number_sections: yes
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(bridgesampling)
+library(R2jags)
+library(logspline)
+library(loo)
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+n_iterations   <- 1000
+```
+
+I want to test whether Indicator Variable Selction (Lodewicz) is sensible to priors as Bayes Factors.
+
+# Data simulation
+
+First of all, I am going to simulate a data set.
+
+```{r}
+n_participants <- 50
+n_groups       <- 2
+alpha          <- 10
+beta           <- 0.3
+
+dat            <- data.frame(
+  ID    = factor(1:(n_participants*n_groups)),
+  Group = factor(rep(LETTERS[1:n_groups],each=n_participants))
+)
+
+set.seed(1)
+
+dat$y          <- alpha + beta * (as.numeric(dat$Group)-1) + rnorm(n_participants*n_groups,sd=1)
+
+dcohen(y~Group,data=dat)
+
+t.test(y~Group,data=dat)
+
+ggplot(dat,aes(y=y,x=Group))+geom_boxplot()
+```
+
+Ok, significant difference.
+
+Let's simulate a data set with no differences between the two groups.
+```{r}
+set.seed(6)
+dat$y          <- alpha + 0 * (as.numeric(dat$Group)-1) + rnorm(n_participants*n_groups,sd=1)
+
+dcohen(y~Group,data=dat)
+
+t.test(y~Group,data=dat)
+
+ggplot(dat,aes(y=y,x=Group))+geom_boxplot()
+```
+
+Ok, no significant result.
+
+Let's simulate both cases `r n_iterations` times and see what happens.
+
+```{r}
+out            <- list()
+
+Y              <- matrix(ncol=n_iterations,nrow=n_participants*n_groups)
+
+set.seed(1)
+Y1             <- apply(Y,2,function(x){alpha + beta * (as.numeric(dat$Group)-1) + rnorm(n_participants*n_groups,sd=1/2)})
+set.seed(2)
+Y0             <- apply(Y,2,function(x){alpha + 0 * (as.numeric(dat$Group)-1) + rnorm(n_participants*n_groups,sd=1/2)})
+
+out1            <- apply(Y1,2,function(x){t.test(x[dat$Group=="A"],x[dat$Group=="B"])$p.value})
+out0            <- apply(Y0,2,function(x){t.test(x[dat$Group=="A"],x[dat$Group=="B"])$p.value})
+
+```
+
+The power is `r round(mean(out1<0.05),2)*100`%.
+
+The first-type error is `r round(mean(out0<0.05),2)*100`%.
+
+Perfect!
+
+```{r child = 'norm001.Rmd'}
+```
+
+```{r child = 'norm010.Rmd'}
+```
+
+```{r child = 'norm100.Rmd'}
+```
+
+```{r child = 'cauchy.Rmd'}
+```
